@@ -32,8 +32,7 @@ spec:
     match:
       context: SIDECAR_INBOUND
       routeConfiguration:
-        # name: "inbound|80||"
-        name: "8000"
+        name: "inbound|80||"
 
     patch:
       operation: INSERT_BEFORE
@@ -54,8 +53,7 @@ spec:
     match:
       context: SIDECAR_INBOUND
       routeConfiguration:
-        # name: "inbound|80||"
-        name: "8000"
+        name: "inbound|80||"
 
     patch:
       operation: INSERT_BEFORE
