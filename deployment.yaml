@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: httpbin
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: httpbin
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: httpbin
+        version: v1
+      annotations:
+        "sidecar.istio.io/logLevel": debug
+        proxy.istio.io/config: |
+          proxyMetadata:
+            AWS_ACCESS_KEY_ID: "AWS_ACCESS_KEY_ID"
+            AWS_SECRET_ACCESS_KEY: "AWS_SECRET_ACCESS_KEY"
+            AWS_REGION: "us-east-1"
+    spec:
+      serviceAccountName: httpbin
+      containers:
+      - image: docker.io/kennethreitz/httpbin
+        imagePullPolicy: IfNotPresent
+        name: httpbin
+        ports:
+        - containerPort: 80

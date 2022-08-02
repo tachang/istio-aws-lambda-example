@@ -1,0 +1,121 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: lambda-filter
+  namespace: default
+spec:
+  workloadSelector:
+    labels:
+      app: httpbin
+  configPatches:
+
+  - applyTo: HTTP_FILTER 
+    match:
+      context: SIDECAR_INBOUND
+      listener:
+        portNumber: 80
+        filterChain:
+          filter:
+            name: "envoy.filters.network.http_connection_manager"
+            subFilter:
+              name: "envoy.filters.http.router"
+    patch:
+      operation: INSERT_BEFORE
+      value:
+        name: envoy.filters.http.aws_lambda
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.http.aws_lambda.v3.Config
+          arn: "arn:aws:lambda:us-east-1:123456789012:function:NAME-OF-FUNCTION-GETS-OVERRIDEN"
+          payload_passthrough: false
+
+  - applyTo: HTTP_ROUTE
+    match:
+      context: SIDECAR_INBOUND
+      routeConfiguration:
+        # name: "inbound|80||"
+        name: "8000"
+
+    patch:
+      operation: INSERT_BEFORE
+      value:
+        name: lambda-route-cat
+        match:
+          prefix: "/cat"
+        route:
+          cluster: lambda_egress_gateway
+        typed_per_filter_config:
+          envoy.filters.http.aws_lambda:
+            "@type": type.googleapis.com/envoy.extensions.filters.http.aws_lambda.v3.PerRouteConfig
+            invoke_config:
+              arn: "arn:aws:lambda:us-east-1:227156485789:function:hello-world-cat"
+              payload_passthrough: false
+
+  - applyTo: HTTP_ROUTE
+    match:
+      context: SIDECAR_INBOUND
+      routeConfiguration:
+        # name: "inbound|80||"
+        name: "8000"
+
+    patch:
+      operation: INSERT_BEFORE
+      value:
+        name: lambda-route-dog
+        match:
+          prefix: "/dog"
+        route:
+          cluster: lambda_egress_gateway
+        typed_per_filter_config:
+          envoy.filters.http.aws_lambda:
+            "@type": type.googleapis.com/envoy.extensions.filters.http.aws_lambda.v3.PerRouteConfig
+            invoke_config:
+              arn: "arn:aws:lambda:us-east-1:123456789012:function:hello-world-dog"
+              payload_passthrough: true
+
+  # - applyTo: NETWORK_FILTER
+  #   match:
+  #     context: SIDECAR_INBOUND
+  #     listener:
+  #       portNumber: 80
+  #       filterChain:
+  #         filter:
+  #           name: "envoy.filters.network.http_connection_manager"
+  #   patch:
+  #     operation: MERGE
+  #     value:
+  #       name: envoy.filters.network.http_connection_manager
+  #       typed_config:
+  #         '@type': type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+  #         # strip_matching_host_port: true
+  #         # forward_client_cert_details: SANITIZE
+  #         strip_any_host_port: true
+
+  # A cluster is a group of logically similar upstream hosts that Envoy connects to
+  - applyTo: CLUSTER
+    match:
+      context: SIDECAR_OUTBOUND
+    patch:
+      operation: ADD
+      value:
+        name: lambda_egress_gateway   
+        type: STRICT_DNS
+        connect_timeout: 0.5s
+        metadata:
+          filter_metadata:
+            com.amazonaws.lambda:
+              egress_gateway: true
+        lb_policy: ROUND_ROBIN
+        load_assignment:
+          cluster_name: lambda_egress_gateway
+          endpoints:
+          - lb_endpoints:
+            - endpoint:
+                address:
+                  socket_address:
+                    address: lambda.us-east-1.amazonaws.com
+                    port_value: 443            
+        transport_socket:
+          name: envoy.transport_sockets.tls
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
+            sni: "*.amazonaws.com"

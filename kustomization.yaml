@@ -1,0 +1,6 @@
+resources:
+- service.yaml
+- service_account.yaml
+- deployment.yaml
+- virtual_service.yaml
+- envoy_filter.yaml

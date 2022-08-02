@@ -1,0 +1,42 @@
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: httpbin
+  namespace: default
+spec:
+  gateways:
+  - default/httpbin-gateway
+  hosts:
+  - "*"
+  http:
+  - headers:
+      request:
+        set:
+          host: "example.com"
+        remove:
+          - "x-datadog-parent-id"
+          - "x-datadog-sampling-priority"
+          - "x-datadog-trace-id"
+          - "x-envoy-attempt-count"
+          - "x-envoy-external-address"
+          - "x-forwarded-client-cert"
+          - "x-request-id"
+          - "x-forwarded-for"
+          - "x-forwarded-proto"
+          - "x-envoy-internal"
+          - "x-envoy-decorator-operation"
+          - "x-envoy-peer-metadata"
+          - "x-envoy-peer-metadata-id"
+          - "x-b3-traceid"
+          - "x-b3-spanid"
+          - "x-b3-sampled"
+          - "x-envoy-expected-rq-timeout-ms"
+    match:
+    - uri:
+        prefix: /
+    name: api-gateway
+    route:
+    - destination:
+        host: httpbin
+        port:
+          number: 8000
